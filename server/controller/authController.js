@@ -1,20 +1,20 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const userModel = require("../model/userModel.js");
-const  transporter  = require('../config/nodemailer.js');
+const transporter = require('../config/nodemailer.js');
 
 //Register function
 const Register = async (req, res) => {
     //Getting the user details from the request body
     const { name, email, password } = req.body;
-    
+
     if (!name || !email || !password) {
-        return res.status(400).json({ success:false, message: "Please fill all fields" });
+        return res.status(400).json({ success: false, message: "Please fill all fields" });
     }
-    
+
     try {
         //Checking if user exists
-        const existingUser = await userModel.findOne({email});
+        const existingUser = await userModel.findOne({ email });
         //If yes, cannot create new user
         if (existingUser) {
             return res.status(400).json({ success: false, message: "User already exists" });
@@ -24,12 +24,12 @@ const Register = async (req, res) => {
 
         //creating new user
         //Note: The userModel is imported from the userModel.js file
-        const newUser = new userModel({name, email, password: hashedPassword});
+        const newUser = new userModel({ name, email, password: hashedPassword });
         await newUser.save(); //saving user to the database
 
         //Creating a JWT token for the user
         //The token will be used for authentication in the future
-        const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {expiresIn: '1d'});
+        const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
         //Sending the response back to the client
         res.cookie('token', token, {
@@ -52,14 +52,14 @@ const Register = async (req, res) => {
         return res.status(201).json({ success: true, message: "User created successfully", user: { id: newUser._id, name: newUser.name, email: newUser.email } });
     } catch (error) {
         //returns any other error that might occur before or during the user creation
-        res.status(500).json({ success: false,message: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
 //Login function
 const Login = async (req, res) => {
     //Getting the email and password from the request body
-    const {email, password} = req.body;
+    const { email, password } = req.body;
     if (!email || !password) {
         return res.status(400).json({ success: false, message: "Please fill all fields" });
     }
@@ -77,7 +77,7 @@ const Login = async (req, res) => {
         }
 
         //Creating a JWT token for the user
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {expiresIn: '1d'});
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
 
         //Sending the response back to the client
         res.cookie('token', token, {
@@ -177,10 +177,33 @@ const verifyEmail = async (req, res) => {
     }
 };
 
+const isAuthenticated = async (req, res) => {
+    try {
+        // Get userId from middleware or request body
+        const userId = req.user?.id || req.body.userId;
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "User ID is required" });
+        }
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        if (user.isVerified) {
+            // User is authenticated if found in DB and verified
+            return res.status(200).json({ success: true, user: { id: user._id, name: user.name, email: user.email } });
+            
+        }
+        return res.status(200).json({ success: false, user: { id: user._id, name: user.name, email: user.email } });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 module.exports = {
     Register,
     Login,
     Logout,
     sendVerifyOtp,
-    verifyEmail
+    verifyEmail,
+    isAuthenticated
 };
