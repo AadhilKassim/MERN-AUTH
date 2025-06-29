@@ -199,11 +199,68 @@ const isAuthenticated = async (req, res) => {
     }
 };
 
+const sendResetOtp = async (req, res) => {
+    const {email} = req.body;
+    if (!email) {
+        return res.status(400).json({ success: false, message: "Please provide email" });
+    }
+    try {
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+
+        const OTP = String(Math.floor(Math.random() * 900000 + 100000));
+        user.resetPasswordOtp = OTP;
+        user.resetPasswordOtpExpires = Date.now() + 10 * 60 * 1000; // OTP valid for 10 minutes
+        await user.save();
+
+        const mailOptions = {
+            from: process.env.EMAIL_SENDER,
+            to: user.email,
+            subject: "Password Reset OTP",
+            text: `Hi, ${user.name}. Your OTP for password reset is ${OTP}. It is valid for 10 minutes.`,
+            html: `<p>Hi <b>${user.name}</b>,</p><p>Your OTP for password reset is <b>${OTP}</b>. It is valid for 10 minutes.</p>`
+        };
+        await transporter.sendMail(mailOptions);
+        return res.status(200).json({ success: true, message: "OTP sent to your email" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+        
+    }
+};
+
+const resetPassword = async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+        return res.status(400).json({ success: false, message: "Please provide email, OTP and new password" });
+    }
+    try {
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ success: false, message: "User not found" });
+        }
+        if (user.resetPasswordOtp === "" || user.resetPasswordOtp !== otp) {
+            return res.status(400).json({ success: false, message: "Invalid OTP" });
+        }
+
+        if (user.resetPasswordOtpExpires < Date.now()) {
+            return res.status(400).json({ success: false, message: "OTP expired" });
+        }
+        
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+        
+    }
+};
+
 module.exports = {
     Register,
     Login,
     Logout,
     sendVerifyOtp,
     verifyEmail,
-    isAuthenticated
+    isAuthenticated,
+    sendResetOtp,
+    resetPassword
 };
