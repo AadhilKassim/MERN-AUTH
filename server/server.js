@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const { default: connectDB } = require('./config/mongoDB');
 const authRouter = require('./routes/authroutes');
+const userRouter = require('./routes/userRoutes');
 
 // Initialize the Express application
 const app = express();
@@ -20,6 +21,9 @@ app.get('/', (req, res) => {
 
 // Import and use the auth routes. This will handle user registration, login, logout, and email verification.
 app.use('/api/auth', authRouter);
+
+// Import and use the user routes. This will handle user-specific operations like fetching user data.
+aap.use('/api/user', userRouter);
 
 // Set the port for the server
 const PORT = process.env.PORT || 5000;
